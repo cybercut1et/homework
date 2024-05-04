@@ -1,146 +1,99 @@
-﻿#include <iostream>
+﻿#in#include <iostream>
 #include <vector>
 #include <queue>
-#include <stack>
+#include <limits>
+#include <cstring>
 
 using namespace std;
 
-bool dfs(vector<vector<int>>& graph, vector<bool>& visited, int start, vector<int>& left_to_right) {
-    // Для каждого соседа текущей вершины левого множества
-    for (int neighbor : graph[start]) {
-        // Если сосед еще не был посещен
-        if (!visited[neighbor]) {
-            // Помечаем сосед как посещенный
-            visited[neighbor] = true;
-            // Если сосед не сопоставлен ни с одной вершиной правого множества,
-            // или если мы можем найти сопоставление для вершины, с которой сосед
-            // был ранее сопоставлен
-            if (left_to_right[neighbor] == -1 || dfs(graph, visited, left_to_right[neighbor], left_to_right)) {
-                // Сопоставляем текущую вершину левого множества с соседом
-                left_to_right[neighbor] = start;
-                return true;
-            }
-        }
-    }
-    // Если не удалось найти сопоставление для текущей вершины левого множества
-    return false;
+const int MAX_V = 1000; // максимальное количество вершин
+
+// структура для представления ребра
+struct Edge {
+    int to, rev;
+    int cap, flow;
+    Edge(int to, int rev, int cap) : to(to), rev(rev), cap(cap), flow(0) {}
+};
+
+// список смежности для представления графа
+vector<Edge> graph[MAX_V];
+int level[MAX_V]; // уровни для поиска пути из источника в сток
+int start, sink; // источник и сток
+
+// функция для добавления ребра в граф
+void add_edge(int from, int to, int cap) {
+    graph[from].emplace_back(to, graph[to].size(), cap);
+    graph[to].emplace_back(from, graph[from].size() - 1, 0);
 }
 
-vector<int> findMatchingDFS(vector<vector<int>>& graph) {
-    int n = graph.size(); // Количество вершин левого множества
-    int m = graph[0].size(); // Количество вершин правого множества
-    // Инициализируем вектор для хранения результата сопоставления
-    vector<int> left_to_right(m, -1);
-    // Для каждой вершины левого множества
-    for (int i = 0; i < n; i++) {
-        // Инициализируем вектор посещенных вершин
-        vector<bool> visited(m, false);
-        // Выполняем DFS-поиск, начиная с текущей вершины левого множества
-        dfs(graph, visited, i, left_to_right);
-    }
-    return left_to_right;
-}
-
-bool bfs(vector<vector<int>>& graph, vector<bool>& visited, int start, vector<int>& left_to_right) {
-    // Создаем очередь для BFS-обхода
+// функция для поиска пути из источника в сток с помощью BFS
+bool bfs() {
+    memset(level, -1, sizeof(level));
+    level[start] = 0;
     queue<int> q;
-    // Добавляем текущую вершину левого множества в очередь
     q.push(start);
-    // Помечаем текущую вершину как посещенную
-    visited[start] = true;
 
-    // Пока очередь не пуста
     while (!q.empty()) {
-        // Извлекаем вершину из очереди
-        int curr = q.front();
+        int v = q.front();
         q.pop();
 
-        // Для каждого соседа текущей вершины
-        for (int neighbor : graph[curr]) {
-
-            // Если сосед еще не был посещен
-            if (!visited[neighbor]) {
-                // Помечаем сосед как посещенный
-                visited[neighbor] = true;
-                // Если сосед не сопоставлен ни с одной вершиной правого множества,
-                // или если мы можем найти сопоставление для вершины, с которой сосед
-                // был ранее сопоставлен
-                if (left_to_right[neighbor] == -1 || bfs(graph, visited, left_to_right[neighbor], left_to_right)) {
-                    // Сопоставляем текущую вершину левого множества с соседом
-                    left_to_right[neighbor] = curr;
-                    return true;
-                }
-                // Добавляем сосед в очередь для дальнейшего обхода
-                q.push(neighbor);
+        for (const Edge& e : graph[v]) {
+            int u = e.to;
+            if (level[u] == -1 && e.flow < e.cap) {
+                level[u] = level[v] + 1;
+                q.push(u);
             }
         }
     }
 
-    // Если не удалось найти сопоставление для текущей вершины левого множества
-    return false;
+    return level[sink] != -1;
 }
 
-vector<int> findMatchingBFS(vector<vector<int>>& graph) {
-    int n = graph.size(); // Количество вершин левого множества
-    int m = graph[0].size(); // Количество вершин правого множества
-    // Инициализируем вектор для хранения результата сопоставления
-    vector<int> left_to_right(m, -1);
-    // Для каждой вершины левого множества
-    for (int i = 0; i < n; i++) {
-        // Инициализируем вектор посещенных вершин
-        vector<bool> visited(m, false);
-        // Выполняем BFS-поиск, начиная с текущей вершины левого множества
-        bfs(graph, visited, i, left_to_right);
+// функция для поиска пути и обновления потока
+int dfs(int v, int min_cap) {
+    if (v == sink)
+        return min_cap;
+
+    int flow = 0;
+    for (Edge& e : graph[v]) {
+        int u = e.to;
+        if (level[u] == level[v] + 1 && e.flow < e.cap) {
+            int pushed = dfs(u, min(min_cap, e.cap - e.flow));
+            e.flow += pushed;
+            graph[u][e.rev].flow -= pushed;
+            flow += pushed;
+        }
     }
-    return left_to_right;
+
+    return flow;
+}
+
+// функция для нахождения максимального потока (алгоритм Форда-Фалкерсона)
+int max_flow() {
+    int flow = 0;
+    while (bfs()) {
+        flow += dfs(start, numeric_limits<int>::max());
+    }
+    return flow;
 }
 
 int main() {
-    vector<vector<int>> graph = { {0, 1, 1, 0, 0, 0},
-                                {1, 0, 0, 1, 0, 0},
-                                {0, 0, 1, 0, 0, 1},
-                                {0, 0, 0, 0, 1, 0} };
+    int n = 6, m = 8; // количество вершин и ребер
+    start = 0, sink = 5; // источник и сток
 
-    // Поиск максимального паросочетания с помощью DFS-алгоритма
-    vector<int> dfs_matching = findMatchingDFS(graph);
+    // Готовый граф для быстрого теста
+    add_edge(0, 1, 16);
+    add_edge(0, 2, 13);
+    add_edge(1, 2, 10);
+    add_edge(1, 3, 12);
+    add_edge(2, 1, 4);
+    add_edge(2, 4, 14);
+    add_edge(3, 2, 9);
+    add_edge(3, 5, 20);
+    add_edge(4, 3, 7);
+    add_edge(4, 5, 4);
 
-    cout << "DFS matching: ";
-    for (int i = 0; i < dfs_matching.size(); i++) {
-        if (dfs_matching[i] == -1) {
-            cout << "- ";
-        }
-        else {
-            cout << dfs_matching[i] + 1 << " ";
-        }
-    }
-    cout << endl;
-
-    // Поиск максимального паросочетания с помощью BFS-алгоритма
-    vector<int> bfs_matching = findMatchingBFS(graph);
-
-    cout << "BFS matching: ";
-    for (int i = 0; i < bfs_matching.size(); i++) {
-        if (bfs_matching[i] == -1) {
-            cout << "- ";
-        }
-        else {
-            cout << bfs_matching[i] + 1 << " ";
-        }
-    }
-    cout << endl;
+    cout << "Max flow: " << max_flow() << endl;
 
     return 0;
 }
-
-// Цель программы найти максимальное паросочетание - набор пар вершин,
-// где каждая вершина левого множества сопоставлена ровно с одной вершиной правого множества,
-// и наоборот. Цель алгоритма - найти такое максимальное паросочетание,
-// при котором количество пар будет максимальным.
-//
-// Таким образом, оба алгоритма нашли максимальное паросочетание размера 2, состоящее из двух пар.
-//
-// Для небольших и плотных графов BFS-реализация, скорее всего, будет работать быстрее,
-// а для больших разреженных графов DFS-реализация будет более эффективной.
-// Однако точная производительность будет зависеть от конкретной структуры графа и данных.
-// Поэтому важно проводить сравнительное тестирование для определения
-// наилучшего подхода в каждом конкретном случае.
