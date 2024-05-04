@@ -16,7 +16,7 @@ struct Edge {
 };
 
 // список смежности для представления графа
-vector<Edge> graph[MAX_V];
+vector<Edge> graph[MAX_V]; // эта конструкция создает вектор, внутри которого MAX_V векторов типа Edge
 int level[MAX_V]; // уровни для поиска пути из источника в сток
 int start, sink; // источник и сток
 
@@ -25,6 +25,8 @@ void add_edge(int from, int to, int cap) {
     graph[from].emplace_back(to, graph[to].size(), cap);
     graph[to].emplace_back(from, graph[from].size() - 1, 0);
 }
+// используем emplace_back, т. к. push_back сначала создает временный объект
+// затем копирует его в вектор, а emplace_back создает объект непосредственно в векторе
 
 // функция для поиска пути из источника в сток с помощью BFS
 bool bfs() {
