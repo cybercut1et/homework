@@ -1,87 +1,104 @@
 ﻿#include <iostream>
 #include <vector>
-#include <queue>
-#include <limits>
-#include <cstring>
+#include <queue> // подключение библиотеки для работы с очередями
+#include <limits> // подключение библиотеки для работы с числовыми пределами
+#include <cstring> // подключение библиотеки для работы с c-строками
 
 using namespace std;
 
-const int MAX_V = 1000; // максимальное количество вершин
+const int MAX_V = 1000; // максимальное количество вершин в графе
 
 // структура для представления ребра
 struct Edge {
-    int to, rev;
-    int cap, flow;
-    Edge(int to, int rev, int cap) : to(to), rev(rev), cap(cap), flow(0) {}
+    int to, rev; // конечная вершина и индекс обратного ребра
+    int cap, flow; // пропускная способность и текущий поток
+    Edge(int to, int rev, int cap) : to(to), rev(rev), cap(cap), flow(0) {} // конструктор ребра
 };
 
 // список смежности для представления графа
-vector<Edge> graph[MAX_V]; // эта конструкция создает вектор, внутри которого MAX_V векторов типа Edge
-int level[MAX_V]; // уровни для поиска пути из источника в сток
-int start, sink; // источник и сток
+vector<Edge> graph[MAX_V];
+int level[MAX_V]; // массив для хранения уровней вершин при поиске пути
+int start, sink; // переменные для обозначения источника и стока
 
 // функция для добавления ребра в граф
 void add_edge(int from, int to, int cap) {
+    // добавление прямого ребра
     graph[from].emplace_back(to, graph[to].size(), cap);
+    // добавление обратного ребра с нулевой пропускной способностью
     graph[to].emplace_back(from, graph[from].size() - 1, 0);
 }
-// используем emplace_back, т. к. push_back сначала создает временный объект
-// затем копирует его в вектор, а emplace_back создает объект непосредственно в векторе
 
 // функция для поиска пути из источника в сток с помощью BFS
 bool bfs() {
-    memset(level, -1, sizeof(level));
-    level[start] = 0;
-    queue<int> q;
-    q.push(start);
+    memset(level, -1, sizeof(level)); // инициализация уровней значением -1
+    level[start] = 0; // уровень источника равен 0
+    queue<int> q; // очередь для BFS
+    q.push(start); // добавление источника в очередь
 
     while (!q.empty()) {
-        int v = q.front();
-        q.pop();
+        int v = q.front(); // текущая вершина
+        q.pop(); // удаление вершины из очереди
 
+        // обход всех рёбер текущей вершины
         for (const Edge& e : graph[v]) {
-            int u = e.to;
+            int u = e.to; // конечная вершина ребра
+            // если вершина ещё не посещена и есть остаточная пропускная способность
             if (level[u] == -1 && e.flow < e.cap) {
-                level[u] = level[v] + 1;
-                q.push(u);
+                level[u] = level[v] + 1; // устанавливаем уровень для вершины u
+                q.push(u); // добавляем вершину u в очередь
             }
         }
     }
 
-    return level[sink] != -1;
+    return level[sink] != -1; // возвращаем, найден ли путь до стока
 }
 
 // функция для поиска пути и обновления потока
 int dfs(int v, int min_cap) {
-    if (v == sink)
-        return min_cap;
+    if (v == sink) // если достигли стока
+        return min_cap; // возвращаем минимальную пропускную способность на пути
 
-    int flow = 0;
+    int flow = 0; // текущий поток
+    // обход всех рёбер текущей вершины
     for (Edge& e : graph[v]) {
-        int u = e.to;
+        int u = e.to; // конечная вершина ребра
+        // если уровень вершины u на 1 больше уровня вершины v и есть остаточная пропускная способность
         if (level[u] == level[v] + 1 && e.flow < e.cap) {
+            // пытаемся найти путь из вершины u с минимальной пропускной способностью
             int pushed = dfs(u, min(min_cap, e.cap - e.flow));
-            e.flow += pushed;
-            graph[u][e.rev].flow -= pushed;
-            flow += pushed;
+            e.flow += pushed; // увеличиваем текущий поток для ребра
+            graph[u][e.rev].flow -= pushed; // уменьшаем поток для обратного ребра
+            flow += pushed; // увеличиваем общий поток
+            if (pushed == 0) // если не удалось протолкнуть поток
+                level[u] = -1; // сбрасываем уровень вершины u
         }
     }
 
-    return flow;
+    return flow; // возвращаем текущий поток
 }
 
-// функция для нахождения максимального потока (алгоритм Форда-Фалкерсона)
+// функция для нахождения максимального потока
 int max_flow() {
-    int flow = 0;
-    while (bfs()) {
-        flow += dfs(start, numeric_limits<int>::max());
+    int flow = 0; // начальный поток равен 0
+    while (bfs()) { // пока есть путь из источника в сток
+        flow += dfs(start, numeric_limits<int>::max()); // находим максимальный поток
     }
-    return flow;
+    return flow; // возвращаем максимальный поток
 }
 
 int main() {
     int n = 6, m = 8; // количество вершин и ребер
-    start = 0, sink = 5; // источник и сток
+    start = 0, sink = 5; // обозначаем источник и сток
+
+    // Добавление рёбер в граф
+    /*
+    for (int i = 0; i < m; i++) {
+        int u, v, c;
+        cout << "Введите начальную вершину, конечную вершину и пропускную способность ребра: ";
+        cin >> u >> v >> c;
+        add_edge(u, v, c);
+    }
+    */
 
     // Готовый граф для быстрого теста
     add_edge(0, 1, 16);
